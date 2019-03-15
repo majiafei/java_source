@@ -284,10 +284,14 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     /*
      * Overview:
      *
+     * 首要的目标是保持并发性
      * The primary design goal of this hash table is to maintain
      * concurrent readability (typically method get(), but also
      * iterators and related methods) while minimizing update
-     * contention. Secondary goals are to keep space consumption about
+     * contention.
+     *
+     * 次要目标是使空间消耗与java.util.HashMap保持大致相同或更好，并且支持许多线程在空表上的高初始插入速率。
+     * Secondary goals are to keep space consumption about
      * the same or better than java.util.HashMap, and to support high
      * initial insertion rates on an empty table by many threads.
      *

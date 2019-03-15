@@ -300,14 +300,26 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * of the basic Node class with hash, key, value, and next
      * fields. However, various subclasses exist: TreeNodes are
      * arranged in balanced trees, not lists.  TreeBins hold the roots
-     * of sets of TreeNodes. ForwardingNodes are placed at the heads
-     * of bins during resizing. ReservationNodes are used as
+     * of sets of TreeNodes.
+     *
+     * 在调整大小期间，转发节点被放置在二叉树的头部
+      * ForwardingNodes are placed at the heads
+     * of bins during resizing.
+     *
+     * ReservationIodes用作占位符，同时在computeIfAbsent和相关方法中建立值。
+      * ReservationNodes are used as
      * placeholders while establishing values in computeIfAbsent and
-     * related methods.  The types TreeBin, ForwardingNode, and
+     * related methods.
+     *
+     *
+     * The types TreeBin, ForwardingNode, and
      * ReservationNode do not hold normal user keys, values, or
      * hashes, and are readily distinguishable during search etc
      * because they have negative hash fields and null key and value
-     * fields. (These special nodes are either uncommon or transient,
+     * fields.
+     *
+     * 这些特殊节点要么不常见，要么是瞬态的，因此携带一些未使用的字段的影响是微不足道的。
+     * (These special nodes are either uncommon or transient,
      * so the impact of carrying around some unused fields is
      * insignificant.)
      *
@@ -334,16 +346,27 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * a lock. Locking support for these locks relies on builtin
      * "synchronized" monitors.
      *
+     * 使用列表的第一个节点作为锁定本身就不够了
      * Using the first node of a list as a lock does not by itself
-     * suffice though: When a node is locked, any update must first
+     * suffice though:
+     *
+     * 当节点被锁定时，任何更新必须首先验证它在锁定后仍然是第一个节点
+     * 如果没有，则重试
+     * When a node is locked, any update must first
      * validate that it is still the first node after locking it, and
-     * retry if not. Because new nodes are always appended to lists,
+     * retry if not.
+      *
+      *
+      * 因为新节点始终追加到列表
+      * Because new nodes are always appended to lists,
      * once a node is first in a bin, it remains first until deleted
      * or the bin becomes invalidated (upon resizing).
      *
+     * 每个bin锁的主要缺点是，由同一个锁保护的bin列表中的其他节点上的其他updat操作可能会停止
      * The main disadvantage of per-bin locks is that other update
      * operations on other nodes in a bin list protected by the same
-     * lock can stall, for example when user equals() or mapping
+     * lock can stall,
+     * for example when user equals() or mapping
      * functions take a long time.  However, statistically, under
      * random hash codes, this is not a common problem.  Ideally, the
      * frequency of nodes in bins follows a Poisson distribution
@@ -365,22 +388,41 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * 8:    0.00000006
      * more: less than 1 in ten million
      *
+     * 在随机哈希下，访问不同元素的两个线程的锁争用概率大约是1 /（8 * #elements）。
      * Lock contention probability for two threads accessing distinct
      * elements is roughly 1 / (8 * #elements) under random hashes.
      *
+     * 在实践中遇到的实际哈希码分布，有时偏离均匀随机性
      * Actual hash code distributions encountered in practice
-     * sometimes deviate significantly from uniform randomness.  This
+     * sometimes deviate significantly from uniform randomness.
+     *
+     * 这包括当N>（1 << 30）时的情况，因此一些键必须发生碰撞。
+     * This
      * includes the case when N > (1<<30), so some keys MUST collide.
+     *
+     *类似于哑巴或敌对用法，其中多个密钥被设计为具有相同的哈希码或者仅在掩蔽的高位中不同的哈希码
      * Similarly for dumb or hostile usages in which multiple keys are
      * designed to have identical hash codes or ones that differs only
-     * in masked-out high bits. So we use a secondary strategy that
+     * in masked-out high bits.
+     *
+     * So we use a secondary strategy that
      * applies when the number of nodes in a bin exceeds a
      * threshold. These TreeBins use a balanced tree to hold nodes (a
-     * specialized form of red-black trees), bounding search time to
-     * O(log N).  Each search step in a TreeBin is at least twice as
+     * specialized form of red-black trees),红黑树中的一种特殊的树
+      * bounding search time to
+     * O(log N). （时间复杂度）
+     *
+     *
+     * TreeBin中的每个搜索步骤至少是常规列表中的两倍，但考虑到N不能超过（1 << 64）（在用完地址之前），这将限制搜索步骤，锁定保持时间等
+     * Each search step in a TreeBin is at least twice as
      * slow as in a regular list, but given that N cannot exceed
      * (1<<64) (before running out of addresses) this bounds search
-     * steps, lock hold times, etc, to reasonable constants (roughly
+     * steps, lock hold times, etc,
+     *
+     *
+     * 合理的常量（每个操作最坏情况下检查大约100个节点）只要键是可比较的（这是非常常见的 - 字符串，长整数等）。 TreeBin节点（TreeNodes）
+     * 也保持与常规节点相同的“下一个”遍历指针，因此可以以相同的方式遍历迭代器。
+     * to reasonable constants (roughly
      * 100 nodes inspected per operation worst case) so long as keys
      * are Comparable (which is very common -- String, Long, etc).
      * TreeBin nodes (TreeNodes) also maintain the same "next"

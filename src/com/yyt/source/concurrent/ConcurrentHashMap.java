@@ -35,6 +35,7 @@
 
 package com.yyt.source.concurrent;
 
+import javax.swing.text.Segment;
 import java.io.ObjectStreamField;
 import java.io.Serializable;
 import java.lang.reflect.ParameterizedType;
@@ -761,10 +762,26 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * and so in principle require only release ordering, not
      * full volatile semantics, but are currently coded as volatile
      * writes to be conservative.
+     *
+     *
+     *
+       在调整大小时，易失性访问方法用于表元素以及正在进行的下一个表的元素。
+       调用者必须对选项卡参数的所有使用进行空值检查。 所有调用者也会异常地
+       预先检查选项卡的长度不为零（或等效检查），从而确保采用散布值（长度为1）
+       的任何索引参数都是有效索引。 请注意，为了使用户能够正确执行任意并发错误，
+       这些检查必须对局部变量进行操作，这些变量可以解释下面的一些奇怪的内联分配。
+        请注意，对setTabAt的调用始终发生在锁定区域内，因此原则上只需要发布排序，
+        而不是完全易失性语义，但目前编码为volatile写道要保守。
      */
 
     @SuppressWarnings("unchecked")
     static final <K,V> Node<K,V> tabAt(Node<K,V>[] tab, int i) {
+        /**
+         * Doug Lea采用Unsafe.getObjectVolatile来获取，也许有人质疑，直接table[index]不可以么，为什么要这么复杂？
+         * 在java内存模型中，我们已经知道每个线程都有一个工作内存，里面存储着table的副本，虽然table是volatile修饰的，
+         * 但不能保证线程每次都拿到table中的最新元素，Unsafe.getObjectVolatile可以直接获取指定内存的数据，
+         * 保证了每次拿到数据都是最新的。
+         */
         return (Node<K,V>)U.getObjectVolatile(tab, ((long)i << ASHIFT) + ABASE);
     }
 
@@ -804,6 +821,13 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * when table is null, holds the initial table size to use upon
      * creation, or 0 for default. After initialization, holds the
      * next element count value upon which to resize the table.
+     *
+     * <p>
+     *     表初始化和调整大小控制。 当为负时，表正在初始化或调整大小：-1表示初始化，
+     *     否则 - （1 +活动大小调整线程数）。
+     *     否则，当table为null时，保持初始表大小以在创建时使用，或者默认为0。 初始化之后，
+     *     保存下一个元素计数值，在该值上调整表的大小。
+     * </p>
      */
     private transient volatile int sizeCtl;
 
@@ -1021,7 +1045,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
 
     /** Implementation for put and putIfAbsent */
     final V putVal(K key, V value, boolean onlyIfAbsent) {
-        if (key == null || value == null) throw new NullPointerException();
+        if (key == null || value == null) throw new NullPointerException(); // key或者value必须不能是null
         int hash = spread(key.hashCode());
         int binCount = 0;
         for (Node<K,V>[] tab = table;;) {
